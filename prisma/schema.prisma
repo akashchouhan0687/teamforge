@@ -1,0 +1,189 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile     Profile?
+  skills      UserSkill[]
+  projects    Project[]
+  ownedTeams  Team[]        @relation("TeamOwner")
+  teamMembers TeamMember[]
+  sentRequests    TeamRequest[] @relation("TeamRequestSender")
+  receivedRequests TeamRequest[] @relation("TeamRequestReceiver")
+  sentConnections     Connection[] @relation("ConnectionSender")
+  receivedConnections Connection[] @relation("ConnectionReceiver")
+  notifications Notification[]
+  teamMessages  TeamMessage[] @relation("TeamMessages")
+}
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  department   String?
+  year         String?
+  bio          String?
+  location     String?
+  profileImage String?
+  interests    String? // Comma-separated or JSON array stored as string
+  availability String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Skill {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  category  String?
+  createdAt DateTime    @default(now())
+  users     UserSkill[]
+  projects  ProjectSkill[]
+}
+
+model UserSkill {
+  userId      String
+  skillId     String
+  proficiency String? // Beginner, Intermediate, Advanced
+  createdAt   DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+}
+
+model ProjectSkill {
+  projectId       String
+  skillId         String
+  requirementType String  // REQUIRED, PREFERRED
+  createdAt       DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, skillId])
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String
+  description  String?
+  role         String?
+  technologies String? // Comma-separated or string list
+  githubUrl    String?
+  liveUrl      String?
+  imageUrl     String?
+  image        String? // Backwards compatibility
+  projectType  String? // Academic, Hackathon, Open Source, Personal, Research, Other
+  teamSize     Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills ProjectSkill[]
+  team   Team?
+
+  @@index([userId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  projectId   String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner   User         @relation("TeamOwner", fields: [ownerId], references: [id])
+  project Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  members TeamMember[]
+  requests TeamRequest[]
+  messages TeamMessage[]
+}
+
+model TeamMember {
+  teamId   String
+  userId   String
+  role     String   @default("member")
+  joinedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+}
+
+model TeamRequest {
+  id         String   @id @default(cuid())
+  teamId     String
+  senderId   String
+  receiverId String
+  status     String   @default("pending") // pending, accepted, rejected
+  createdAt  DateTime @default(now())
+
+  team     Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sender   User @relation("TeamRequestSender", fields: [senderId], references: [id])
+  receiver User @relation("TeamRequestReceiver", fields: [receiverId], references: [id])
+}
+
+model Connection {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     String   @default("pending") // pending, accepted, rejected
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("ConnectionSender", fields: [senderId], references: [id])
+  receiver User @relation("ConnectionReceiver", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model TeamMessage {
+  id        String   @id @default(cuid())
+  teamId    String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sender User @relation("TeamMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([teamId, createdAt])
+  @@index([senderId])
+}
