@@ -58,6 +58,7 @@ export default async function DiscoverPage({
       interest,
       page: isNaN(page) ? 1 : page,
       pageSize: 12,
+      currentUserId: currentUserId || undefined,
     }),
     currentUserId ? getRecommendedStudents(currentUserId, 6) : Promise.resolve([]),
   ]);
@@ -231,4 +232,8 @@ export default async function DiscoverPage({
     </div>
   );
 }
+
+
+
+
 
