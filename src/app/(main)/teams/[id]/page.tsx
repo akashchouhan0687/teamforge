@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils";
 import { ArrowLeft, Users, User, LogOut, Trash2, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { scoreTeamCandidate } from "@/lib/team-recommendations";
-import { SmartSuggestions } from "./SmartSuggestions";
+import { SmartSuggestionsSkeleton, SmartSuggestionsLoader } from "./SmartSuggestionsLoader";
 import { TeamTasks } from "./TeamTasks";
+import { Suspense } from "react";
 
 interface TeamDetailPageProps {
   params: Promise<{ id: string }>;
@@ -114,7 +115,7 @@ export default async function TeamDetailPage({
   // Smart Team Suggestions
   // -----------------------------------------------------------------------------------------
   
-  let recommendations: any[] = [];
+  
   
   // Create the owner baseline profile
   const ownerBaselineProfile = {
@@ -126,67 +127,7 @@ export default async function TeamDetailPage({
     skills: team.owner.skills.map(s => s.skill)
   };
 
-  if (isOwner && ((gapAnalysis.hasRequirements && gapAnalysis.missingRequiredCount > 0) || gapAnalysis.missingPreferredCount > 0)) {
-    const [availableUsers, pendingRequests] = await Promise.all([
-      db.user.findMany({
-        where: {
-          teamMembers: { none: { teamId: team.id } }
-        },
-        select: {
-          id: true,
-          name: true,
-          image: true,
-          profile: {
-            select: {
-              department: true,
-              year: true,
-              bio: true,
-              location: true,
-              profileImage: true,
-              interests: true,
-            }
-          },
-          skills: { include: { skill: true } }
-        },
-        orderBy: { name: 'asc' }
-      }),
-      db.teamRequest.findMany({
-        where: { teamId: team.id, status: 'pending' },
-        select: { receiverId: true }
-      })
-    ]);
-    const pendingUserIds = new Set(pendingRequests.map(r => r.receiverId));
-
-    const scoredCandidates = availableUsers
-      .filter(u => u.id !== team.owner.id) // Exclude owner
-      .map(u => {
-        const candidateProfile = {
-          id: u.id,
-          name: u.name,
-          image: u.image,
-          profileImage: u.profile?.profileImage || null,
-          department: u.profile?.department,
-          year: u.profile?.year,
-          interests: u.profile?.interests?.split(",") || [],
-          availability: u.profile?.bio,
-          skills: u.skills.map(s => s.skill),
-          teamOwnerProfile: ownerBaselineProfile as any
-        };
-        
-        const scoreResult = scoreTeamCandidate(candidateProfile as any, gapAnalysis);
-        if (scoreResult) {
-          return {
-            ...scoreResult,
-            hasPendingInvite: pendingUserIds.has(u.id)
-          };
-        }
-        return null;
-      })
-      .filter(Boolean) as any[];
-      
-    // Sort by match score descending
-    recommendations = scoredCandidates.sort((a, b) => b.matchScore - a.matchScore).slice(0, 5); // Show top 5
-  }
+  
 
   const isTeamFull = team.project?.teamSize ? team.members.length >= team.project.teamSize : false;
 
@@ -417,19 +358,28 @@ export default async function TeamDetailPage({
             )}
           </div>
           
-          <SmartSuggestions 
-            teamId={team.id}
-            recommendations={recommendations}
-            isOwner={isOwner}
-            isTeamFull={isTeamFull}
-            hasRequirements={gapAnalysis.hasRequirements}
-            hasGaps={gapAnalysis.missingRequiredCount > 0 || gapAnalysis.missingPreferredCount > 0}
-          />
+          <Suspense fallback={<SmartSuggestionsSkeleton />}>
+            <SmartSuggestionsLoader 
+              teamId={team.id}
+              ownerBaselineProfile={ownerBaselineProfile}
+              gapAnalysis={gapAnalysis}
+              isOwner={isOwner}
+              isTeamFull={isTeamFull}
+              hasRequirements={gapAnalysis.hasRequirements}
+              hasGaps={gapAnalysis.missingRequiredCount > 0 || gapAnalysis.missingPreferredCount > 0}
+            />
+          </Suspense>
         </div>
       </div>
     </div>
   );
 }
+
+
+
+
+
+
 
 
 

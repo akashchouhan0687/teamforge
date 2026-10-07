@@ -9,6 +9,7 @@ export interface DiscoverFilterParams {
   interest?: string;
   page?: number;
   pageSize?: number;
+  currentUserId?: string;
 }
 
 export interface DiscoveredStudentSkill {
@@ -104,12 +105,17 @@ export async function getDiscoveredStudents({
   interest,
   page = 1,
   pageSize = 12,
+  currentUserId,
 }: DiscoverFilterParams): Promise<DiscoverResult> {
   const safePage = Math.max(1, Number(page) || 1);
   const safePageSize = Math.max(1, Math.min(50, Number(pageSize) || 12));
 
   // Build Prisma where conditions
   const andConditions: any[] = [];
+
+  if (currentUserId) {
+    andConditions.push({ id: { not: currentUserId } });
+  }
 
   // 1. Text Search across Name, Skills, and Profile Interests
   if (query && query.trim().length > 0) {
@@ -337,3 +343,5 @@ export async function getDiscoveredStudents({
     hasPrevPage: safePage > 1,
   };
 }
+
+
