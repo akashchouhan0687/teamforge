@@ -132,8 +132,12 @@ function normalizeTerm(term: string): string {
   return term.toLowerCase().trim();
 }
 
+const normalizedSkillsCache = new WeakMap<SkillInput[], Set<string>>();
 function getNormalizedSkillSet(skills: SkillInput[]): Set<string> {
-  return new Set(skills.map((s) => normalizeSkillName(s.name)));
+  if (normalizedSkillsCache.has(skills)) return normalizedSkillsCache.get(skills)!;
+  const set = new Set(skills.map((s) => normalizeSkillName(s.name)));
+  normalizedSkillsCache.set(skills, set);
+  return set;
 }
 
 function getDeptGroup(dept: string | null | undefined): string[] | null {
@@ -201,12 +205,20 @@ function scoreComplementarySkills(
 /**
  * Shared interests (max 20)
  */
+const normalizedInterestsCache = new WeakMap<string[], string[]>();
+function getCachedNormalizedInterests(interests: string[]): string[] {
+  if (normalizedInterestsCache.has(interests)) return normalizedInterestsCache.get(interests)!;
+  const arr = interests.map(normalizeTerm);
+  normalizedInterestsCache.set(interests, arr);
+  return arr;
+}
+
 function scoreSharedInterests(
   interestsA: string[],
   interestsB: string[]
 ): { score: number; shared: string[] } {
-  const normA = interestsA.map(normalizeTerm);
-  const normB = new Set(interestsB.map(normalizeTerm));
+  const normA = getCachedNormalizedInterests(interestsA);
+  const normB = new Set(getCachedNormalizedInterests(interestsB));
 
   const shared: string[] = [];
   for (const i of normA) {
@@ -679,3 +691,5 @@ export function matchCandidateToProject(
     reasons
   };
 }
+
+

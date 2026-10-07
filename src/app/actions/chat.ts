@@ -12,21 +12,22 @@ export async function sendTeamMessage(teamId: string, content: string) {
   if (!trimmedContent) throw new Error("Message cannot be empty");
   if (trimmedContent.length > 2000) throw new Error("Message cannot exceed 2000 characters");
 
-  // Verify membership
-  const team = await db.team.findUnique({
+  // Verify membership lightweight check
+  const teamAuth = await db.team.findUnique({
     where: { id: teamId },
-    include: {
-      members: { where: { userId: session.userId } }
-    }
+    select: { ownerId: true }
   });
 
-  if (!team) throw new Error("Team not found");
+  if (!teamAuth) throw new Error("Team not found");
 
-  const isOwner = team.ownerId === session.userId;
-  const isMember = team.members.length > 0;
-
-  if (!isOwner && !isMember) {
-    throw new Error("You must be a member of this team to send messages");
+  if (teamAuth.ownerId !== session.userId) {
+    const isMember = await db.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId: session.userId } },
+      select: { userId: true }
+    });
+    if (!isMember) {
+      throw new Error("You must be a member of this team to send messages");
+    }
   }
 
   const message = await db.teamMessage.create({
@@ -43,42 +44,57 @@ export async function sendTeamMessage(teamId: string, content: string) {
   });
 
   // Revalidate the chat route so it shows up for standard SSR updates if needed
-  revalidatePath(`/teams/${teamId}/chat`);
+  revalidatePath('/teams/' + teamId + '/chat');
 
   return message;
 }
 
-export async function getTeamMessages(teamId: string, limit = 50) {
+export async function getTeamMessages(teamId: string, limit = 50, afterId?: string) {
   const session = await getSession();
   if (!session?.userId) throw new Error("Unauthorized");
 
-  // Verify membership
-  const team = await db.team.findUnique({
+  // Verify membership lightweight check
+  const teamAuth = await db.team.findUnique({
     where: { id: teamId },
-    include: {
-      members: { where: { userId: session.userId } }
-    }
+    select: { ownerId: true }
   });
 
-  if (!team) throw new Error("Team not found");
-  
-  const isOwner = team.ownerId === session.userId;
-  const isMember = team.members.length > 0;
+  if (!teamAuth) throw new Error("Team not found");
 
-  if (!isOwner && !isMember) {
-    throw new Error("You must be a member of this team to read messages");
+  if (teamAuth.ownerId !== session.userId) {
+    const isMember = await db.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId: session.userId } },
+      select: { userId: true }
+    });
+    if (!isMember) {
+      throw new Error("You must be a member of this team to read messages");
+    }
   }
 
-  const messages = await db.teamMessage.findMany({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const queryParams: any = {
     where: { teamId },
-    orderBy: { createdAt: "asc" }, // we will just load all latest ones chronologically
-    take: -limit, // Prisma take negative means last N
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }], // deterministic sorting for cursor
     include: {
       sender: {
         select: { id: true, name: true, image: true, profile: { select: { profileImage: true } } }
       }
     }
-  });
+  };
+
+  if (afterId) {
+    queryParams.cursor = { id: afterId };
+    queryParams.skip = 1; // skip the cursor message itself
+  } else {
+    queryParams.take = -limit; // only apply negative take for initial loads
+  }
+
+  const messages = await db.teamMessage.findMany(queryParams);
 
   return messages;
 }
+
+
+
+
+

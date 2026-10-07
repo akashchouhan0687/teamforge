@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { calculateProfileCompletion } from "@/lib/profile";
@@ -8,7 +9,7 @@ import { analyzeTeamSkillGaps } from "@/lib/team-coverage";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  Briefcase, Users, Bell, ArrowRight, FolderGit2, Plus, Zap, Check, AlertCircle, Compass, ShieldAlert, Clock
+  Briefcase, Users, Bell, ArrowRight, FolderGit2, Plus, Zap, Check, AlertCircle, Compass, ShieldAlert, Clock, CheckCircle2
 } from "lucide-react";
 
 export const metadata = {
@@ -19,95 +20,121 @@ export default async function DashboardPage() {
   const session = await getSession();
   if (!session?.userId) redirect("/login");
 
-  const user = await db.user.findUnique({
-    where: { id: session.userId },
-    include: {
-      profile: true,
-      skills: {
-        include: { skill: true },
-        orderBy: { skill: { name: "asc" } },
+  const [
+    user,
+    pendingConnectionRequests,
+    recentConnections,
+    pendingTeamInvitations,
+    recentNotifications,
+    activeTeams,
+    candidateUsers,
+    rawMyTasks
+  ] = await Promise.all([    db.user.findUnique({
+      where: { id: session.userId },
+      include: {
+        profile: true,
+        skills: {
+          include: { skill: true },
+          orderBy: { skill: { name: "asc" } },
+        },
+        projects: {
+          orderBy: { createdAt: "desc" },
+          include: { 
+            skills: { include: { skill: true } },
+            team: { select: { id: true, members: { select: { userId: true } } } }
+          }
+        },
       },
-      projects: {
-        orderBy: { createdAt: "desc" },
-        include: { 
-          skills: { include: { skill: true } },
-          team: { select: { id: true, members: { select: { userId: true } } } }
+    }),
+    db.connection.findMany({
+      where: { receiverId: session.userId, status: 'pending' },
+      include: { sender: { select: { name: true, profile: true, image: true } } },
+      take: 3,
+      orderBy: { createdAt: 'desc' }
+    }),
+    db.connection.findMany({
+      where: { 
+        status: 'accepted',
+        OR: [ { senderId: session.userId }, { receiverId: session.userId } ]
+      },
+      include: {
+        sender: { include: { profile: true } },
+        receiver: { include: { profile: true } }
+      },
+      take: 3,
+      orderBy: { createdAt: 'desc' }
+    }),
+    db.teamRequest.findMany({
+      where: { receiverId: session.userId, status: 'pending' },
+      include: { 
+        team: { select: { name: true, project: { select: { title: true } } } },
+        sender: { select: { name: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    }),
+    db.notification.findMany({
+      where: { userId: session.userId },
+      take: 4,
+      orderBy: { createdAt: 'desc' }
+    }),
+    db.team.findMany({
+      where: {
+        OR: [
+          { ownerId: session.userId },
+          { members: { some: { userId: session.userId } } }
+        ]
+      },
+      include: {
+        project: { include: { skills: { include: { skill: true } } } },
+        members: { 
+          include: {
+            user: { include: { profile: true, skills: { include: { skill: true } } } }
+          }
         }
       },
-    },
-  });
+      take: 4,
+      orderBy: { createdAt: 'desc' }
+    }),
+    db.user.findMany({
+      where: { id: { not: session.userId } },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        profile: {
+          select: {
+            department: true,
+            year: true,
+            interests: true,
+            availability: true,
+            profileImage: true,
+          }
+        },
+        skills: {
+          select: {
+            proficiency: true,
+            skill: { select: { id: true, name: true } }
+          }
+        }
+      },
+      take: 20
+    }),
+    db.task.findMany({
+      where: {
+        assignedToId: session.userId,
+        team: {
+          members: { some: { userId: session.userId } }
+        }
+      },
+      include: {
+        team: { select: { id: true, name: true, project: { select: { title: true } } } }
+      },
+      orderBy: { updatedAt: 'desc' }
+    })
+  ]);
 
   if (!user) redirect("/login");
-
   const completion = calculateProfileCompletion(user);
-
-  // Connection data
-  const pendingConnectionRequests = await db.connection.findMany({
-    where: { receiverId: user.id, status: 'pending' },
-    include: { sender: { select: { name: true, profile: true, image: true } } },
-    take: 3,
-    orderBy: { createdAt: 'desc' }
-  });
-
-  const recentConnections = await db.connection.findMany({
-    where: { 
-      status: 'accepted',
-      OR: [ { senderId: user.id }, { receiverId: user.id } ]
-    },
-    include: {
-      sender: { include: { profile: true } },
-      receiver: { include: { profile: true } }
-    },
-    take: 3,
-    orderBy: { createdAt: 'desc' }
-  });
-
-  // Team Invitations
-  const pendingTeamInvitations = await db.teamRequest.findMany({
-    where: { receiverId: user.id, status: 'pending' },
-    include: { 
-      team: { select: { name: true, project: { select: { title: true } } } },
-      sender: { select: { name: true } }
-    },
-    orderBy: { createdAt: 'desc' }
-  });
-
-  // Notifications
-  const recentNotifications = await db.notification.findMany({
-    where: { userId: user.id },
-    take: 4,
-    orderBy: { createdAt: 'desc' }
-  });
-
-  // Teams
-  const activeTeams = await db.team.findMany({
-    where: {
-      OR: [
-        { ownerId: user.id },
-        { members: { some: { userId: user.id } } }
-      ]
-    },
-    include: {
-      project: { include: { skills: { include: { skill: true } } } },
-      members: { 
-        include: {
-          user: { include: { profile: true, skills: { include: { skill: true } } } }
-        }
-      }
-    },
-    take: 4,
-    orderBy: { createdAt: 'desc' }
-  });
-
-  // Generate Recommendations
-  const candidateUsers = await db.user.findMany({
-    where: { id: { not: user.id } },
-    include: {
-      profile: true,
-      skills: { include: { skill: true } }
-    },
-    take: 20
-  });
 
   const viewerProfile = {
     id: user.id,
@@ -180,6 +207,15 @@ export default async function DashboardPage() {
   if (hour < 12) greeting = "Good morning";
   else if (hour < 18) greeting = "Good afternoon";
 
+  const sortedMyTasks = rawMyTasks.sort((a: any, b: any) => {
+    const rankA = a.status === 'TODO' ? 1 : a.status === 'IN_PROGRESS' ? 2 : 3;
+    const rankB = b.status === 'TODO' ? 1 : b.status === 'IN_PROGRESS' ? 2 : 3;
+    if (rankA !== rankB) return rankA - rankB;
+    if (a.dueDate && b.dueDate) return a.dueDate.getTime() - b.dueDate.getTime();
+    if (a.dueDate) return -1;
+    if (b.dueDate) return 1;
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
+  }).slice(0, 5);
   const firstName = user.name ? user.name.split(" ")[0] : "Welcome back";
 
   return (
@@ -303,7 +339,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-12 rounded-full bg-muted border overflow-hidden shrink-0">
                         {rec.profile?.profileImage || rec.image ? (
-                          <img src={rec.profile?.profileImage || rec.image!} alt={rec.name} className="h-full w-full object-cover" />
+                          <SafeImage src={rec.profile?.profileImage || rec.image!} alt={rec.name} className="h-full w-full object-cover" width={48} height={48} />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center text-primary font-bold text-lg bg-primary/10">
                             {rec.name.charAt(0)}
@@ -350,7 +386,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+        <div className="grid lg:grid-cols-3 gap-8 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
           {/* 4. PROJECT OVERVIEW */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -482,7 +518,7 @@ export default async function DashboardPage() {
                             {team.members.slice(0,3).map(m => (
                               <div key={m.user.id} className="h-6 w-6 rounded-full border-2 border-card bg-muted overflow-hidden">
                                 {m.user.profile?.profileImage || m.user.image ? (
-                                  <img src={m.user.profile?.profileImage || m.user.image!} alt="" className="h-full w-full object-cover" />
+                                  <SafeImage src={m.user.profile?.profileImage || m.user.image!} alt="" className="h-full w-full object-cover" width={24} height={24} />
                                 ) : (
                                   <div className="h-full w-full flex items-center justify-center text-[8px] font-bold bg-primary/10 text-primary">
                                     {m.user.name.charAt(0)}
@@ -500,6 +536,84 @@ export default async function DashboardPage() {
                         </Link>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {/* MY TASKS */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" /> My Tasks
+              </h2>
+              {rawMyTasks.length > 5 && (
+                <Link href={`/teams/${sortedMyTasks[0].team.id}#tasks`} className="text-sm font-bold text-muted-foreground hover:text-emerald-500 transition-colors">
+                  View All ?
+                </Link>
+              )}
+            </div>
+            
+            {sortedMyTasks.length === 0 ? (
+              <div className="rounded-3xl border bg-card p-8 text-center flex flex-col items-center border-dashed h-[220px] justify-center">
+                <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <p className="font-bold text-foreground">You're all caught up.</p>
+                <p className="text-sm font-medium text-muted-foreground mt-1">No tasks are currently assigned to you.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {sortedMyTasks.map((task: any) => {
+                  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "COMPLETED";
+                  
+                  return (
+                    <Link 
+                      href={`/teams/${task.teamId}#tasks`}
+                      key={task.id} 
+                      className="block rounded-2xl border bg-card p-5 animate-hover-subtle hover:border-emerald-500/30 shadow-sm"
+                    >
+                      <div className="flex flex-col gap-2">
+                        <h3 className="font-bold text-foreground line-clamp-1">{task.title}</h3>
+                        <p className="text-xs font-bold text-muted-foreground line-clamp-1">
+                          {task.team.name}
+                        </p>
+                        
+                        <div className="flex flex-wrap items-center gap-2 mt-2 pt-3 border-t">
+                          <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border",
+                            task.status === "COMPLETED" ? "text-emerald-700 bg-emerald-100 border-emerald-200" :
+                            task.status === "IN_PROGRESS" ? "text-primary bg-primary/10 border-primary/20" :
+                            "text-muted-foreground bg-muted border-border/50"
+                          )}>
+                            {task.status === "COMPLETED" ? "Completed" : task.status === "IN_PROGRESS" ? "In Progress" : "To Do"}
+                          </span>
+                          
+                          <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border",
+                            task.priority === "HIGH" ? "text-red-600 bg-red-100 border-red-200" :
+                            task.priority === "MEDIUM" ? "text-amber-600 bg-amber-100 border-amber-200" :
+                            "text-emerald-600 bg-emerald-100 border-emerald-200"
+                          )}>
+                            {task.priority}
+                          </span>
+
+                          {task.dueDate ? (
+                            <span className={cn(
+                              "text-xs font-bold flex items-center gap-1 ml-auto",
+                              isOverdue ? "text-red-600" : "text-muted-foreground"
+                            )}>
+                              <Clock className="h-3 w-3" />
+                              {isOverdue ? "Overdue" : "Due " + new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold flex items-center gap-1 ml-auto text-muted-foreground opacity-60">
+                              No due date
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -534,7 +648,7 @@ export default async function DashboardPage() {
                       ))}
                     </div>
                   </div>
-                  <Link href={`/teams/${skillGapTeam.id}/suggestions`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full rounded-full font-bold")}>
+                  <Link href={`/teams/${skillGapTeam.id}/members/add`} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full rounded-full font-bold")}>
                     Find People →
                   </Link>
                 </div>
@@ -642,3 +756,14 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+

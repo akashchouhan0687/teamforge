@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addTeamMember } from "@/app/actions/teams";
+
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Loader2, User as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { CandidateRecommendation } from "@/lib/team-recommendations";
 
 interface SmartSuggestionsProps {
@@ -180,8 +181,7 @@ export function SmartSuggestions({ teamId, recommendations, isOwner, isTeamFull,
                       <div className="flex items-start gap-5 relative z-10">
                         <div className="h-16 w-16 md:h-20 md:w-20 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border-2 border-background shadow-sm">
                           {student.profileImage || student.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={student.profileImage || student.image!} alt={student.name} className="h-full w-full object-cover" />
+                            <SafeImage src={student.profileImage || student.image!} alt={student.name} className="h-full w-full object-cover" width={80} height={80} />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center bg-primary/5 text-muted-foreground font-black text-2xl">
                               {student.name.charAt(0).toUpperCase()}
@@ -288,3 +288,5 @@ export function SmartSuggestions({ teamId, recommendations, isOwner, isTeamFull,
     </>
   );
 }
+
+

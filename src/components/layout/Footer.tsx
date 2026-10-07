@@ -23,7 +23,6 @@ export function Footer() {
           </div>
           <div className="flex flex-col gap-2">
             <h3 className="font-semibold">Resources</h3>
-            <Link href="/blog" className="text-sm text-muted-foreground hover:text-primary">Blog</Link>
             <Link href="/help" className="text-sm text-muted-foreground hover:text-primary">Help Center</Link>
             <Link href="/guidelines" className="text-sm text-muted-foreground hover:text-primary">Community Guidelines</Link>
           </div>
@@ -42,3 +41,4 @@ export function Footer() {
     </footer>
   );
 }
+

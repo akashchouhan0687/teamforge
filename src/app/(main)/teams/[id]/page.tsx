@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { analyzeTeamSkillGaps } from "@/lib/team-coverage";
@@ -9,6 +10,7 @@ import { ArrowLeft, Users, User, LogOut, Trash2, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { scoreTeamCandidate } from "@/lib/team-recommendations";
 import { SmartSuggestions } from "./SmartSuggestions";
+import { TeamTasks } from "./TeamTasks";
 
 interface TeamDetailPageProps {
   params: Promise<{ id: string }>;
@@ -46,6 +48,13 @@ export default async function TeamDetailPage({
           profile: true,
           skills: { include: { skill: true } }
         }
+      },
+      tasks: {
+        include: {
+          assignedTo: { select: { id: true, name: true, image: true, profile: { select: { profileImage: true } } } },
+          createdBy: { select: { id: true, name: true } }
+        },
+        orderBy: { createdAt: 'desc' }
       },
       members: {
         include: {
@@ -101,39 +110,9 @@ export default async function TeamDetailPage({
 
   const gapAnalysis = analyzeTeamSkillGaps(projectRequirements, teamMembersInput);
 
-  // Users that can be added (all users not in the team)
-  const availableUsers = isOwner ? await db.user.findMany({
-    where: {
-      teamMembers: {
-        none: {
-          teamId: team.id
-        }
-      }
-    },
-    select: {
-      id: true,
-      name: true,
-      image: true,
-      profile: {
-        select: {
-          department: true,
-          year: true,
-          bio: true,
-          location: true,
-          profileImage: true,
-          interests: true,
-        }
-      },
-      skills: {
-        include: { skill: true }
-      }
-    },
-    orderBy: { name: 'asc' }
-  }) : [];
-
-  // ─────────────────────────────────────────────────────────
+  // -----------------------------------------------------------------------------------------
   // Smart Team Suggestions
-  // ─────────────────────────────────────────────────────────
+  // -----------------------------------------------------------------------------------------
   
   let recommendations: any[] = [];
   
@@ -147,11 +126,35 @@ export default async function TeamDetailPage({
     skills: team.owner.skills.map(s => s.skill)
   };
 
-  if (gapAnalysis.hasRequirements && gapAnalysis.missingRequiredCount > 0 || gapAnalysis.missingPreferredCount > 0) {
-    const pendingRequests = await db.teamRequest.findMany({
-      where: { teamId: team.id, status: 'pending' },
-      select: { receiverId: true }
-    });
+  if (isOwner && ((gapAnalysis.hasRequirements && gapAnalysis.missingRequiredCount > 0) || gapAnalysis.missingPreferredCount > 0)) {
+    const [availableUsers, pendingRequests] = await Promise.all([
+      db.user.findMany({
+        where: {
+          teamMembers: { none: { teamId: team.id } }
+        },
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          profile: {
+            select: {
+              department: true,
+              year: true,
+              bio: true,
+              location: true,
+              profileImage: true,
+              interests: true,
+            }
+          },
+          skills: { include: { skill: true } }
+        },
+        orderBy: { name: 'asc' }
+      }),
+      db.teamRequest.findMany({
+        where: { teamId: team.id, status: 'pending' },
+        select: { receiverId: true }
+      })
+    ]);
     const pendingUserIds = new Set(pendingRequests.map(r => r.receiverId));
 
     const scoredCandidates = availableUsers
@@ -225,6 +228,15 @@ export default async function TeamDetailPage({
             </div>
           </div>
 
+          {/* Team Tasks */}
+          <TeamTasks 
+            teamId={team.id} 
+            tasks={team.tasks as any} 
+            members={team.members as any} 
+            isOwner={isOwner} 
+            currentUserId={session.userId} 
+          />
+
           {/* Members List */}
           <div className="space-y-6 pt-4">
             <div className="flex items-center justify-between">
@@ -239,8 +251,7 @@ export default async function TeamDetailPage({
                   <div className="flex items-center gap-5">
                     <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-background shadow-xs group-hover:border-primary/20 transition-colors">
                       {member.user.profile?.profileImage || member.user.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={member.user.profile?.profileImage || member.user.image!} alt={member.user.name} className="h-full w-full object-cover" />
+                        <SafeImage src={member.user.profile?.profileImage || member.user.image!} alt={member.user.name} className="h-full w-full object-cover" width={48} height={48} />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground font-black text-lg bg-primary/5">
                           {member.user.name.charAt(0).toUpperCase()}
@@ -419,3 +430,7 @@ export default async function TeamDetailPage({
     </div>
   );
 }
+
+
+
+

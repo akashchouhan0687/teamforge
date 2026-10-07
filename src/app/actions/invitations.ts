@@ -44,11 +44,11 @@ export async function sendTeamInvitation(teamId: string, receiverId: string) {
       userId: receiverId,
       type: 'TEAM_INVITATION',
       title: 'Team Invitation',
-      message: `${team.name} invited you to join their team.`,
+      message: team.name + ' invited you to join their team.',
     }
   });
 
-  revalidatePath(`/teams/${teamId}`);
+  revalidatePath('/teams/' + teamId);
 }
 
 export async function acceptTeamInvitation(requestId: string) {
@@ -73,8 +73,18 @@ export async function acceptTeamInvitation(requestId: string) {
     throw new Error("This team is now full");
   }
 
-  // Transaction to accept and add member atomically
-  await db.$transaction([
+  const unreadNotifs = await db.notification.findMany({
+    where: { 
+      userId: session.userId, 
+      type: 'TEAM_INVITATION', 
+      read: false,
+      message: team.name + ' invited you to join their team.'
+    },
+    take: 1
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const txOperations: any[] = [
     db.teamRequest.update({
       where: { id: requestId },
       data: { status: 'accepted' }
@@ -94,35 +104,72 @@ export async function acceptTeamInvitation(requestId: string) {
         message: 'A user accepted your team invitation.',
       }
     })
-  ]);
+  ];
 
-  revalidatePath(`/notifications`);
-  revalidatePath(`/teams/${team.id}`);
+  if (unreadNotifs.length > 0) {
+    txOperations.push(
+      db.notification.update({
+        where: { id: unreadNotifs[0].id },
+        data: { read: true }
+      })
+    );
+  }
+
+  await db.$transaction(txOperations);
+
+  revalidatePath('/notifications');
+  revalidatePath('/teams/' + team.id);
 }
 
 export async function declineTeamInvitation(requestId: string) {
   const session = await getSession();
   if (!session?.userId) throw new Error("Unauthorized");
 
-  const request = await db.teamRequest.findUnique({ where: { id: requestId } });
+  const request = await db.teamRequest.findUnique({ 
+    where: { id: requestId },
+    include: { team: true } 
+  });
   if (!request) throw new Error("Invitation not found");
   if (request.receiverId !== session.userId) throw new Error("Unauthorized");
 
-  await db.teamRequest.update({
-    where: { id: requestId },
-    data: { status: 'rejected' }
+  const unreadNotifs = await db.notification.findMany({
+    where: { 
+      userId: session.userId, 
+      type: 'TEAM_INVITATION', 
+      read: false,
+      message: request.team.name + ' invited you to join their team.'
+    },
+    take: 1
   });
 
-  await db.notification.create({
-    data: {
-      userId: request.senderId,
-      type: 'INVITATION_DECLINED',
-      title: 'Invitation Declined',
-      message: 'A user declined your team invitation.',
-    }
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const txOperations: any[] = [
+    db.teamRequest.update({
+      where: { id: requestId },
+      data: { status: 'rejected' }
+    }),
+    db.notification.create({
+      data: {
+        userId: request.senderId,
+        type: 'INVITATION_DECLINED',
+        title: 'Invitation Declined',
+        message: 'A user declined your team invitation.',
+      }
+    })
+  ];
 
-  revalidatePath(`/notifications`);
+  if (unreadNotifs.length > 0) {
+    txOperations.push(
+      db.notification.update({
+        where: { id: unreadNotifs[0].id },
+        data: { read: true }
+      })
+    );
+  }
+
+  await db.$transaction(txOperations);
+
+  revalidatePath('/notifications');
 }
 
 export async function cancelTeamInvitation(requestId: string) {
@@ -137,10 +184,35 @@ export async function cancelTeamInvitation(requestId: string) {
   if (!request) throw new Error("Invitation not found");
   if (request.team.ownerId !== session.userId) throw new Error("Unauthorized");
 
-  await db.teamRequest.update({
-    where: { id: requestId },
-    data: { status: 'cancelled' }
+  const unreadNotifs = await db.notification.findMany({
+    where: { 
+      userId: request.receiverId, 
+      type: 'TEAM_INVITATION', 
+      read: false,
+      message: request.team.name + ' invited you to join their team.'
+    },
+    take: 1
   });
 
-  revalidatePath(`/teams/${request.teamId}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const txOperations: any[] = [
+    db.teamRequest.update({
+      where: { id: requestId },
+      data: { status: 'cancelled' }
+    })
+  ];
+
+  if (unreadNotifs.length > 0) {
+    txOperations.push(
+      db.notification.update({
+        where: { id: unreadNotifs[0].id },
+        data: { read: true }
+      })
+    );
+  }
+
+  await db.$transaction(txOperations);
+
+  revalidatePath('/teams/' + request.teamId);
 }
+

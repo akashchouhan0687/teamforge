@@ -30,6 +30,8 @@ model User {
   receivedConnections Connection[] @relation("ConnectionReceiver")
   notifications Notification[]
   teamMessages  TeamMessage[] @relation("TeamMessages")
+  assignedTasks Task[]        @relation("TaskAssignedTo")
+  createdTasks  Task[]        @relation("TaskCreatedBy")
 }
 
 model Profile {
@@ -118,6 +120,7 @@ model Team {
   members TeamMember[]
   requests TeamRequest[]
   messages TeamMessage[]
+  tasks    Task[]
 }
 
 model TeamMember {
@@ -187,3 +190,26 @@ model TeamMessage {
   @@index([teamId, createdAt])
   @@index([senderId])
 }
+
+model Task {
+  id           String    @id @default(cuid())
+  teamId       String
+  title        String
+  description  String?
+  assignedToId String?
+  priority     String    @default("MEDIUM") // LOW, MEDIUM, HIGH
+  status       String    @default("TODO")   // TODO, IN_PROGRESS, COMPLETED
+  dueDate      DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  team         Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignedTo   User?     @relation("TaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy    User      @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([assignedToId])
+}
+
+

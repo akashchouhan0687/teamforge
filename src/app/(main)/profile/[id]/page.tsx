@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { calculateProfileCompletion } from "@/lib/profile";
@@ -270,12 +271,7 @@ export default async function StudentProfilePage({
                 {/* Avatar / Photo */}
                 <div className="relative h-24 w-24 md:h-32 md:w-32 rounded-full overflow-hidden border-4 border-background shadow-md bg-primary/5 flex items-center justify-center shrink-0">
                   {photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photoUrl}
-                      alt={user.name}
-                      className="h-full w-full object-cover"
-                    />
+                    <SafeImage src={photoUrl} alt={user.name} className="h-full w-full object-cover" width={128} height={128} priority />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-primary font-black text-4xl">
                       {user.name.charAt(0).toUpperCase()}
@@ -605,11 +601,7 @@ export default async function StudentProfilePage({
                           {image ? (
                             <>
                               <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors z-10" />
-                              <img
-                                src={image}
-                                alt={project.title}
-                                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                              />
+                              <SafeImage src={image} alt={project.title} className="object-cover group-hover:scale-105 transition-transform duration-500" fill sizes="(max-width: 768px) 100vw, 50vw" />
                             </>
                           ) : (
                             <div className="h-full w-full bg-gradient-to-br from-blue-500/5 to-purple-500/5 flex items-center justify-center">
@@ -716,3 +708,4 @@ export default async function StudentProfilePage({
     </div>
   );
 }
+

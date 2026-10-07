@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { ArrowLeft, Send, Users, User, RefreshCw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -39,23 +40,33 @@ export function TeamChatClient({ team, initialMessages, currentUserId }: any) {
     }
   }, [messages]);
 
+  // Keep track of the latest message timestamp to use as a cursor
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      lastMessageIdRef.current = messages[messages.length - 1].id;
+    }
+  }, [messages]);
+
   // Polling for new messages
   useEffect(() => {
     let intervalId: any;
     
     const fetchNewMessages = async () => {
       try {
-        const latest = await getTeamMessages(team.id);
-        if (latest.length > 0) {
-          // Only update state if length or last message ID changes
+        // Fetch only strictly new messages after the last known message ID cursor
+        const afterId = lastMessageIdRef.current;
+        const newMessages = await getTeamMessages(team.id, 50, afterId || undefined);
+        
+        if (newMessages.length > 0) {
           setMessages(prev => {
-            const prevLast = prev.length > 0 ? prev[prev.length - 1].id : null;
-            const newLast = latest[latest.length - 1].id;
+            // Merge new messages (deduplication kept as an extra safety measure)
+            const existingIds = new Set(prev.map(m => m.id));
+            const uniqueNew = newMessages.filter(m => !existingIds.has(m.id));
             
-            if (prev.length !== latest.length || prevLast !== newLast) {
-              return latest;
-            }
-            return prev;
+            if (uniqueNew.length === 0) return prev;
+            return [...prev, ...uniqueNew];
           });
         }
       } catch (err) {
@@ -138,7 +149,7 @@ export function TeamChatClient({ team, initialMessages, currentUserId }: any) {
               {team.members.slice(0,4).map((m: any) => (
                 <div key={m.user.id} className="h-9 w-9 rounded-full bg-muted border-2 border-card overflow-hidden shadow-sm relative z-10 hover:z-20 transition-all hover:scale-110" title={m.user.name}>
                   {m.user.profile?.profileImage || m.user.image ? (
-                    <img src={m.user.profile?.profileImage || m.user.image!} alt={m.user.name} className="h-full w-full object-cover" />
+                    <SafeImage src={m.user.profile?.profileImage || m.user.image!} alt={m.user.name} className="h-full w-full object-cover" width={36} height={36} />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-xs bg-primary/10 text-primary font-black">
                       {m.user.name.charAt(0).toUpperCase()}
@@ -195,7 +206,7 @@ export function TeamChatClient({ team, initialMessages, currentUserId }: any) {
                       {!isMine && (
                         <div className="h-8 w-8 rounded-full bg-muted border border-border/50 overflow-hidden shrink-0 shadow-sm">
                           {msg.sender.profile?.profileImage || msg.sender.image ? (
-                            <img src={msg.sender.profile?.profileImage || msg.sender.image!} alt={msg.sender.name} className="h-full w-full object-cover" />
+                            <SafeImage src={msg.sender.profile?.profileImage || msg.sender.image!} alt={msg.sender.name} className="h-full w-full object-cover" width={32} height={32} />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary text-xs font-black">
                               {msg.sender.name.charAt(0).toUpperCase()}
@@ -264,3 +275,6 @@ export function TeamChatClient({ team, initialMessages, currentUserId }: any) {
     </div>
   );
 }
+
+
+

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { buttonVariants } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { ArrowLeft, User, LogOut, Trash2, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DeleteTeamButton } from "@/components/teams/DeleteTeamButton";
+import { EditTeamNameForm } from "@/components/teams/EditTeamNameForm";
 
 interface TeamManagePageProps {
   params: Promise<{ id: string }>;
@@ -97,10 +99,14 @@ export default async function TeamManagePage({ params }: TeamManagePageProps) {
         <div className="rounded-3xl border bg-card p-6 md:p-8 shadow-sm space-y-6">
           <h2 className="text-2xl font-black border-b border-border/50 pb-4">Team Information</h2>
           <div className="grid sm:grid-cols-2 gap-6">
-            <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
-              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Team Name</span>
-              <p className="font-bold text-foreground text-lg">{team.name}</p>
-            </div>
+            {isOwner ? (
+              <EditTeamNameForm teamId={team.id} initialName={team.name} />
+            ) : (
+              <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Team Name</span>
+                <p className="font-bold text-foreground text-lg">{team.name}</p>
+              </div>
+            )}
             <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Project</span>
               <p className="font-bold text-foreground text-lg">{team.project?.title || "None"}</p>
@@ -128,8 +134,7 @@ export default async function TeamManagePage({ params }: TeamManagePageProps) {
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center overflow-hidden border border-border/50">
                     {member.user.profile?.profileImage || member.user.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={member.user.profile?.profileImage || member.user.image!} alt={member.user.name} className="h-full w-full object-cover" />
+                      <SafeImage src={member.user.profile?.profileImage || member.user.image!} alt={member.user.name} className="h-full w-full object-cover" width={48} height={48} />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-primary/5 text-muted-foreground font-black text-lg">
                         {member.user.name.charAt(0).toUpperCase()}
@@ -194,8 +199,7 @@ export default async function TeamManagePage({ params }: TeamManagePageProps) {
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center overflow-hidden border border-border/50">
                       {request.receiver.profile?.profileImage || request.receiver.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={request.receiver.profile?.profileImage || request.receiver.image!} alt={request.receiver.name} className="h-full w-full object-cover" />
+                        <SafeImage src={request.receiver.profile?.profileImage || request.receiver.image!} alt={request.receiver.name} className="h-full w-full object-cover" width={48} height={48} />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-primary/5 text-muted-foreground font-black text-lg">
                           {request.receiver.name.charAt(0).toUpperCase()}
@@ -245,3 +249,5 @@ export default async function TeamManagePage({ params }: TeamManagePageProps) {
     </div>
   );
 }
+
+

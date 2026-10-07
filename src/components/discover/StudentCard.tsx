@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,12 +40,7 @@ export function StudentCard({ student }: StudentCardProps) {
         <div className="flex items-start gap-4">
           <div className="relative h-16 w-16 rounded-full overflow-hidden border-2 border-primary/20 bg-primary/5 shrink-0 flex items-center justify-center shadow-sm">
             {photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={photoUrl}
-                alt={student.name}
-                className="h-full w-full object-cover"
-              />
+              <SafeImage src={photoUrl} alt={student.name} className="h-full w-full object-cover" width={64} height={64} />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-primary font-black text-xl">
                 {student.name.charAt(0).toUpperCase()}
@@ -146,3 +142,4 @@ export function StudentCard({ student }: StudentCardProps) {
     </div>
   );
 }
+

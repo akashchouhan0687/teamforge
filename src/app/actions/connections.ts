@@ -46,8 +46,8 @@ export async function sendConnectionRequest(receiverId: string) {
     }
   });
 
-  revalidatePath(`/profile/${receiverId}`);
-  revalidatePath(`/connections`);
+  revalidatePath('/profile/' + receiverId);
+  revalidatePath('/connections');
 }
 
 export async function acceptConnectionRequest(connectionId: string) {
@@ -58,23 +58,40 @@ export async function acceptConnectionRequest(connectionId: string) {
   if (!connection) throw new Error("Connection not found");
   if (connection.receiverId !== session.userId) throw new Error("Unauthorized");
 
-  await db.connection.update({
-    where: { id: connectionId },
-    data: { status: 'accepted' }
+  const unreadNotifs = await db.notification.findMany({
+    where: { userId: session.userId, type: 'CONNECTION_REQUEST', read: false },
+    take: 1
   });
 
-  // Notify sender
-  await db.notification.create({
-    data: {
-      userId: connection.senderId,
-      type: 'CONNECTION_ACCEPTED',
-      title: 'Connection Accepted',
-      message: 'Your connection request was accepted.',
-    }
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const txOperations: any[] = [
+    db.connection.update({
+      where: { id: connectionId },
+      data: { status: 'accepted' }
+    }),
+    db.notification.create({
+      data: {
+        userId: connection.senderId,
+        type: 'CONNECTION_ACCEPTED',
+        title: 'Connection Accepted',
+        message: 'Your connection request was accepted.',
+      }
+    })
+  ];
 
-  revalidatePath(`/connections`);
-  revalidatePath(`/profile/${connection.senderId}`);
+  if (unreadNotifs.length > 0) {
+    txOperations.push(
+      db.notification.update({
+        where: { id: unreadNotifs[0].id },
+        data: { read: true }
+      })
+    );
+  }
+
+  await db.$transaction(txOperations);
+
+  revalidatePath('/connections');
+  revalidatePath('/profile/' + connection.senderId);
 }
 
 export async function declineConnectionRequest(connectionId: string) {
@@ -85,10 +102,30 @@ export async function declineConnectionRequest(connectionId: string) {
   if (!connection) throw new Error("Connection not found");
   if (connection.receiverId !== session.userId) throw new Error("Unauthorized");
 
-  await db.connection.update({
-    where: { id: connectionId },
-    data: { status: 'rejected' }
+  const unreadNotifs = await db.notification.findMany({
+    where: { userId: session.userId, type: 'CONNECTION_REQUEST', read: false },
+    take: 1
   });
 
-  revalidatePath(`/connections`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const txOperations: any[] = [
+    db.connection.update({
+      where: { id: connectionId },
+      data: { status: 'rejected' }
+    })
+  ];
+
+  if (unreadNotifs.length > 0) {
+    txOperations.push(
+      db.notification.update({
+        where: { id: unreadNotifs[0].id },
+        data: { read: true }
+      })
+    );
+  }
+
+  await db.$transaction(txOperations);
+
+  revalidatePath('/connections');
 }
+

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { DeleteProjectButton } from "@/components/projects/DeleteProjectButton";
@@ -55,12 +56,7 @@ export function ProjectCard({ project, isOwner = false }: ProjectCardProps) {
         {image ? (
           <>
             <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors z-10" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={image}
-              alt={project.title}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
+            <SafeImage src={image} alt={project.title} className="object-cover transition-transform duration-500 group-hover:scale-105" fill sizes="(max-width: 768px) 100vw, 33vw" />
           </>
         ) : (
           <div className="flex h-full w-full bg-gradient-to-br from-blue-500/5 to-purple-500/5 items-center justify-center flex-col text-muted-foreground/60 gap-2 p-4 text-center">
@@ -194,3 +190,4 @@ export function ProjectCard({ project, isOwner = false }: ProjectCardProps) {
     </div>
   );
 }
+

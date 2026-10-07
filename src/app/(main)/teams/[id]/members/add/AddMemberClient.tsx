@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addTeamMember } from "@/app/actions/teams";
+import { sendTeamInvitation } from "@/app/actions/invitations";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Loader2, X, User as UserIcon, Search, MapPin, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 
@@ -33,6 +34,7 @@ interface StudentUser {
     interests: string | null;
   } | null;
   skills: UserSkill[];
+  hasPendingInvite?: boolean;
 }
 
 export function AddMemberClient({ 
@@ -60,12 +62,10 @@ export function AddMemberClient({
     setError(null);
     startTransition(async () => {
       try {
-        const formData = new FormData();
-        formData.append("userId", selectedStudent.id);
-        await addTeamMember(team.id, formData);
+        await sendTeamInvitation(team.id, selectedStudent.id);
         setSuccess(true);
       } catch (err: any) {
-        setError(err.message || "Failed to add member");
+        setError(err.message || "Failed to send invitation");
       }
     });
   };
@@ -92,7 +92,7 @@ export function AddMemberClient({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-gradient-to-r from-card to-primary/5 rounded-3xl border border-primary/10 p-8 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-primary/10 blur-3xl rounded-full pointer-events-none"></div>
           <div className="relative z-10 space-y-2">
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground">Add Team Member</h1>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground">Invite Team Member</h1>
             <p className="text-muted-foreground font-medium text-lg">
               Find the right student to strengthen your team.
             </p>
@@ -174,7 +174,7 @@ export function AddMemberClient({
                   <div className="flex items-start gap-4 relative z-10">
                     <div className="h-16 w-16 rounded-full overflow-hidden bg-muted shrink-0 flex items-center justify-center border-2 border-background shadow-sm">
                       {image ? (
-                        <img src={image} alt={student.name} className="h-full w-full object-cover" />
+                        <SafeImage src={image} alt={student.name} className="h-full w-full object-cover" width={64} height={64} />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-primary/5 text-muted-foreground font-black text-xl">
                           {student.name.charAt(0).toUpperCase()}
@@ -239,7 +239,7 @@ export function AddMemberClient({
                         }}
                         className={cn(buttonVariants({ variant: "default", size: "lg" }), "flex-1 rounded-full font-bold shadow-sm")}
                       >
-                        Add to Team
+                        Invite to Team
                       </button>
                     )}
                   </div>
@@ -275,7 +275,7 @@ export function AddMemberClient({
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="h-28 w-28 rounded-full overflow-hidden bg-muted border-4 border-background shadow-sm flex items-center justify-center">
                   {selectedStudent.profile?.profileImage || selectedStudent.image ? (
-                    <img src={selectedStudent.profile?.profileImage || selectedStudent.image!} alt={selectedStudent.name} className="h-full w-full object-cover" />
+                    <SafeImage src={selectedStudent.profile?.profileImage || selectedStudent.image!} alt={selectedStudent.name} className="h-full w-full object-cover" width={112} height={112} />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-primary/5 text-muted-foreground font-black text-4xl">
                       {selectedStudent.name.charAt(0).toUpperCase()}
@@ -358,7 +358,7 @@ export function AddMemberClient({
                 <div className="space-y-4">
                   <div className="p-4 text-sm text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-xl font-black text-center relative overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500/50" />
-                    Student added to team successfully! 🎉
+                    Team invitation sent successfully! 🎉
                   </div>
                   <Link href={`/teams/${team.id}`} className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full rounded-full font-bold")}>
                     Back to Team
@@ -368,17 +368,19 @@ export function AddMemberClient({
                 <>
                   <button
                     onClick={handleAdd}
-                    disabled={isPending || isTeamFull}
-                    className={cn(buttonVariants({ size: "lg" }), "w-full rounded-full font-bold shadow-sm")}
-                  >
-                    {isPending ? (
-                      <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Adding...</>
-                    ) : isTeamFull ? (
-                      "Team is Full"
-                    ) : (
-                      "Add to Team"
-                    )}
-                  </button>
+                      disabled={isPending || isTeamFull || selectedStudent.hasPendingInvite}
+                      className={cn(buttonVariants({ variant: selectedStudent.hasPendingInvite ? "secondary" : "default", size: "lg" }), "w-full rounded-full font-bold shadow-sm")}
+                    >
+                      {isPending ? (
+                        <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Sending...</>
+                      ) : selectedStudent.hasPendingInvite ? (
+                        "Invitation Already Sent"
+                      ) : isTeamFull ? (
+                        "Team is Full"
+                      ) : (
+                        "Invite to Team"
+                      )}
+                    </button>
                   <div className="text-center pt-2">
                     <Link 
                       href={`/profile/${selectedStudent.id}`} 
@@ -397,3 +399,8 @@ export function AddMemberClient({
     </div>
   );
 }
+
+
+
+
+

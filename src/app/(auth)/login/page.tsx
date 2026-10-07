@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
 import Link from "next/link";
 import { GraduationCap } from "lucide-react";
 import LoginForm from "@/components/auth/LoginForm";
@@ -8,7 +10,10 @@ export const metadata: Metadata = {
   description: "Sign in to your TeamForge account.",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await getSession();
+  if (session?.userId) redirect('/dashboard');
+
   return (
     <div className="min-h-[calc(100dvh-4rem)] flex items-center justify-center px-4 py-12 relative overflow-hidden">
       {/* Background decoration */}
@@ -42,3 +47,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

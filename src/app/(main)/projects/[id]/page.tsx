@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
@@ -123,12 +124,7 @@ export default async function ProjectDetailPage({
         {/* Large Image Header */}
         {image ? (
           <div className="relative w-full h-64 md:h-96 bg-muted/60 border-b border-border/50 overflow-hidden flex items-center justify-center z-10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={image}
-              alt={project.title}
-              className="w-full h-full object-cover"
-            />
+            <SafeImage src={image} alt={project.title} className="object-cover" fill priority sizes="100vw" />
           </div>
         ) : (
           <div className="relative w-full h-48 md:h-64 bg-gradient-to-br from-blue-500/5 to-purple-500/5 border-b border-border/50 flex flex-col items-center justify-center text-muted-foreground/50 z-10 gap-3">
@@ -365,3 +361,4 @@ export default async function ProjectDetailPage({
     </div>
   );
 }
+

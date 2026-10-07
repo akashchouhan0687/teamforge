@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { UserIcon, MapPin, Check, X, Clock } from "lucide-react";
@@ -49,8 +50,7 @@ export default async function ConnectionsPage() {
         <div className="flex items-start gap-4 relative z-10">
           <div className="h-16 w-16 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0 border-2 border-background shadow-sm">
             {photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={photoUrl} alt={otherUser.name} className="h-full w-full object-cover" />
+              <SafeImage src={photoUrl} alt={otherUser.name} className="h-full w-full object-cover" width={64} height={64} />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-muted-foreground bg-primary/5 font-black text-xl">
                 {otherUser.name.charAt(0).toUpperCase()}
@@ -201,3 +201,4 @@ export default async function ConnectionsPage() {
     </div>
   );
 }
+

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { Check, Users, ArrowRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,12 +67,7 @@ export function MatchCard({ match }: MatchCardProps) {
         {/* Avatar */}
         <div className="relative h-14 w-14 rounded-full overflow-hidden border-2 border-primary/20 bg-primary/5 flex items-center justify-center shrink-0">
           {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photoUrl}
-              alt={match.targetName}
-              className="h-full w-full object-cover"
-            />
+            <SafeImage src={photoUrl} alt={match.targetName} className="h-full w-full object-cover" width={56} height={56} />
           ) : (
             <span className="text-xl font-black text-primary">{initials}</span>
           )}
@@ -186,3 +182,4 @@ export function MatchCard({ match }: MatchCardProps) {
     </div>
   );
 }
+

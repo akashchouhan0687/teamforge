@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { buttonVariants } from "@/components/ui/button";
 import { Bell, Users, Menu, Sparkles } from "lucide-react";
 import { getSession } from "@/lib/session";
@@ -79,7 +80,7 @@ export async function Navbar() {
                 </span>
                 <div className="h-7 w-7 rounded-full bg-muted border overflow-hidden shrink-0">
                   {userProfile?.profile?.profileImage || userProfile?.image ? (
-                    <img src={userProfile?.profile?.profileImage || userProfile?.image!} alt="Avatar" className="h-full w-full object-cover" />
+                    <SafeImage src={userProfile?.profile?.profileImage || userProfile?.image} alt="Avatar" className="h-full w-full object-cover" width={36} height={36} priority />
                   ) : (
                     <div className="h-full w-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
                       {userProfile?.name?.charAt(0).toUpperCase()}
@@ -119,3 +120,5 @@ export async function Navbar() {
     </header>
   );
 }
+
+

@@ -49,51 +49,6 @@ export async function createTeam(projectId: string, formData: FormData) {
   redirect(`/teams/${newTeam.id}`);
 }
 
-export async function addTeamMember(teamId: string, formData: FormData) {
-  const session = await getSession();
-  if (!session?.userId) {
-    throw new Error("Unauthorized");
-  }
-
-  const userIdToAdd = formData.get("userId")?.toString();
-  if (!userIdToAdd) {
-    throw new Error("User ID is required");
-  }
-
-  const team = await db.team.findUnique({
-    where: { id: teamId },
-    include: { project: true, members: true },
-  });
-
-  if (!team) {
-    throw new Error("Team not found");
-  }
-
-  if (team.ownerId !== session.userId) {
-    throw new Error("Unauthorized: Only the team owner can add members");
-  }
-
-  if (team.members.some((m) => m.userId === userIdToAdd)) {
-    throw new Error("User is already a member of this team");
-  }
-
-  if (team.project && team.project.teamSize) {
-    if (team.members.length >= team.project.teamSize) {
-      throw new Error(`Team is full (limit: ${team.project.teamSize} members)`);
-    }
-  }
-
-  await db.teamMember.create({
-    data: {
-      teamId: team.id,
-      userId: userIdToAdd,
-      role: "MEMBER",
-    },
-  });
-
-  revalidatePath(`/teams/${teamId}`);
-}
-
 export async function removeTeamMember(teamId: string, userIdToRemove: string) {
   const session = await getSession();
   if (!session?.userId) {
@@ -220,3 +175,4 @@ export async function deleteTeam(teamId: string) {
   }
   redirect("/teams");
 }
+

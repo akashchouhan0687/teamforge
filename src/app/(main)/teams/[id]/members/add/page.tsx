@@ -67,10 +67,23 @@ export default async function AddMemberPage({ params }: AddMemberPageProps) {
       },
       skills: {
         include: { skill: true }
+      },
+      receivedRequests: {
+        where: { teamId: team.id, status: 'pending' },
+        select: { id: true }
       }
     },
     orderBy: { name: 'asc' }
   });
+
+  const mappedUsers = availableUsers.map(u => ({
+    id: u.id,
+    name: u.name,
+    image: u.image,
+    profile: u.profile,
+    skills: u.skills,
+    hasPendingInvite: u.receivedRequests.length > 0
+  }));
 
   const projectRequiredSkills = team.project?.skills
     .filter(s => s.requirementType === 'REQUIRED')
@@ -79,8 +92,9 @@ export default async function AddMemberPage({ params }: AddMemberPageProps) {
   return (
     <AddMemberClient 
       team={team} 
-      availableUsers={availableUsers} 
+      availableUsers={mappedUsers} 
       projectRequiredSkills={projectRequiredSkills} 
     />
   );
 }
+
